@@ -1,0 +1,168 @@
+---
+title: "Legendary Status In Relation To Attack Value"
+author: "Maria Manzano, Neenv Menon, Audrey Powers, Tasnim Sallam"
+date: "07-25-2025"
+format:
+  html:
+    toc: true
+    toc-location: left
+    toc-depth: 2
+    embed-resources: true
+page-layout: full
+editor: visual
+error: true
+---
+
+# Introduction
+
+-   **Introduction of Data**
+    -   The data details information about different Pokemon including character values (ID, name, type (type1 or type2)), integer values (total, HP, attack, defense, special attack, special defense, speed, generation), and boolean values (legendary status). Some Pokemon may lack a second type, but every other column is filled in for every Pokemon.
+-   **Hypothesis**
+    -   Can we predict a Pokemon's legendary status based on its Attack? Pokemon with higher attack values are more likely to be legendary status.
+-   **Code Book/Data Dictionary**
+    -   Variables of interest here include the "Attack" and "Legendary" column. The "Attack" column displays an integer value that is directly related to the numerical value of a Pokemon's attack power. The "Legendary" column returns either true or false depending on whether or not it is legendary.
+
+        ```{r, echo=FALSE}
+        pkmn <- read.csv("Pokemon.csv") 
+        # needed to ensure that our model works with the CSV file, otherwise bugs
+        pkmn$Legendary <- ifelse(trimws(pkmn$Legendary) == "True", 1, 0)
+        head(pkmn, 5)
+        ```
+-   **Omitted Variables**
+    -   The omitted columns include "ID", "Name", "Type1", "Type2", "Total", "HP", "Defense", "Sp..Atk", "Sp..Def", "Speed", and "Generation". These columns are not of use to this question as they are not directly related to the hypothesis question and take focus away from attack and legendary values.
+-   **Motivation**
+    -   Typically, legendary Pokemon are understood to be stronger than non-legendary Pokemon. Strength is also commonly associated with the ability to dominate by attacking rather than defending.
+
+# Methods
+
+### Logistic Regression
+
+The main method we plan to use is regression, however because the variable we are predicting (Legendary), is binary, we will specifically be using Logistic Regression.
+
+"Legendary" only has the outcomes "True" or "False". While "Attack" is the numerical variable which we are using in order to predict Legendary status. Logistic regression will allow us to predict and examine the relationship between our categorical dependent variable that is also binary, and our independent numerical variable.
+
+Below is our preliminary examination of the two variables, comparing the mean, standard deviation, and min/max of "Attack" to the count and category of "Legendary".
+
+```{r}
+library(dplyr)
+
+pkmn %>%
+  group_by(Legendary) %>%
+  summarise(
+    count = n(),
+    mean_attack = mean(Attack),
+    sd_attack = sd(Attack),
+    min_attack = min(Attack),
+    max_attack = max(Attack)
+  )
+```
+
+From this table table, we can see that the mean for the "False" category is much lower, and so is the minimum and maximum attack values. Their standard deviations are almost identical. However it is notable that the "False" category has an extremely higher count than "True", which means a legendary status is rare in occurrence. That could be contributed to generally rarer Pokemon attributes, in this case higher attack power, affecting Legendary status.
+
+### Box Plots
+
+We will use box plots to compare the attack values between the Legendary and non-Legendary Pokemon. This will enable us to see, in a visual method, which category tends to have higher attack values and which lower, or whether there is even a distinction.
+
+Below is both a preliminary graph of our box plot, for a visual representation of the summary statistics detailed in the previous method.
+
+It shows much of the same, with Legendary status leaning towards higher attack values, while non-legendary status leans lower with only few outliers. The lowest attack value for legendary status seems to not even fall below Quantile 1 of the non-legendary status box plot.
+
+```{r}
+boxplot(Attack ~ Legendary, data = pkmn,
+        main = "Attack Values vs. Legendary Status",
+        ylab = "Attack Values",
+        xlab = "Legendary Status")
+```
+
+# Results
+
+-   **Present the main figure or table for your analysis**. I highly suggest focusing on a single figure or table to tell your story! You may of course use additional figures or tables if absolutely essential to the analysis.
+-   **Communicate the outcome of your analysis**. What does your figure/table tell us? What reasons do we have to believe it? How do we interpret the result?
+-   Use $\LaTeX$ to typeset any equations or math you may need to communicate your results (e.g. regression equation).
+
+We performed a logistic regression where **Legendary** (1 = Yes, 0 = No) was the outcome variable, and **Attack** was the predictor.
+
+```{r}
+model <- glm(Legendary ~ Attack, data = pkmn, family = "binomial")
+summary(model)
+exp(coef(model))
+```
+
+The logistic regression output shows that the coefficient for Attack is positive, and statistically significant. This means that as the attack value increases, the likelihood of the Pokémon being legendary also increase.
+
+The odds ratio is approx. 1.047. This means that for each 1 point increase in Attack, the odds of it being legendary increase by about 4.7%, which supports our hypothesis that higher attack is associated with legendary Pokemon.
+
+### Predicted Probability Curve:
+
+To better visualize the model's prediction, we plotted the probability that a Pokémon is legendary as a function of its attack value. The logistic curve below was generated from our model.
+
+```{r}
+library(ggplot2)
+
+# creating attack data frame
+attack_seq <- data.frame(Attack = seq(min(pkmn$Attack), max(pkmn$Attack), length.out = 100))
+
+attack_seq$pred_prob <- predict(model, newdata = attack_seq, type = "response") # predicted probability
+
+# create curve
+ggplot(attack_seq, aes(x = Attack, y = pred_prob)) +
+  geom_line(color = "steelblue", linewidth = 1.5) +
+  labs(
+    title = "Predicted Probability of Legendary Status by Attack",
+    x = "Attack Value",
+    y = "Predicted Probability"
+  ) +
+  theme_minimal()
+```
+
+The logistic regression curve shows a clear upward trend in the probability of a Pokémon being legendary as its attack value increases. The curve begins to rise sharply at around 100 attack value. This suggests that legendary Pokémon tend to have much higher attack values than non-legendary ones, supporting our original hypothesis.
+
+While the model captures this trend, the sharp increase at high attack values also reflects that very few Pokémon are legendary — meaning the model is influenced heavily by the extreme cases. This is an important factor to think about when tackling this problem.
+
+# Discussion
+
+-   **Summarize your main findings in a few sentences**.
+
+    -   The logistical regression curve and the box plot supported our hypothesis that Legendary Pokemon are positive associated with a higher number of attacks. Based on the logistic regression, the fifty-nine Pokemon with a Legendary status had an average attack value of 113 and a max attack value of 180. This data supports the idea that strong offensive attacks are strong indicators and characteristics of Legendary Pokemon status. This also demonstrates how logistic regression can help predict future relationships between Legendary Pokemon and their attack values.
+
+-   **Tell us why your finding may or may not be meaningful**.
+
+    -   These results are meaningful for categorizing Legendary Pokemon in future additional Pokemon data. This is important in understanding Pokemon characteristics, which can be helpful for a future predictive model of the data.
+
+-   **Critique your work**. Is there anything you might have done differently using other methods or additional data?
+
+    -   This prediction model of Legendary Pokemon and Attack values only focused on the Attack data. No other data and columns were involved in this project. This being said maybe for future analysis, other data such as Sp. Attack or Total could be used.
+
+# Appendix (optional)
+
+-   any supporting tables, figures, or comments
+
+    ```{r}
+    #packages used
+    library(dplyr)
+
+    #loading data
+    pokemon <- read.csv("Pokemon.csv")
+    View(pokemon)
+
+    head(pokemon,5)
+
+    #descriptive table
+    summary_table <- pokemon %>%
+      group_by(Legendary) %>%
+      summarise(
+        N = n(),
+        Mean.Attack = mean(Attack),
+        SD.Attack = sd(Attack),
+        Min.Attack = min(Attack),
+        Max.Attack = max(Attack)
+      )
+    summary_table
+
+    #boxplot_figure 1
+    boxplot(Attack ~ Legendary, data = pokemon,
+            main = "Distribution of Attack Values by Legendary Status",
+            ylab = "Attack Values",
+            xlab = "Legendary Status")
+
+    ```
